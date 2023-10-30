@@ -1,0 +1,64 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Resources": {
+       "Role": {
+          "Type": "AWS::IAM::Role",
+          "Properties": {
+             "RoleName": "<Role-Name>",
+             "AssumeRolePolicyDocument": {
+                "Version" : "2012-10-17",
+                "Statement": [ {
+                   "Effect": "Allow",
+                   "Principal": {
+                      "Service": [ "<service name>.amazonaws.com" ]
+                   },
+                   "Action": [ "sts:AssumeRole" ]
+                } ]
+             },
+             "Path": "/"
+          }
+       },
+       "RolePolicies": {
+          "Type": "AWS::IAM::Policy",
+          "Properties": {
+             "PolicyName": "<Policy-Name>",
+             "PolicyDocument": {
+                "Version" : "2012-10-17",
+                "Statement": [ {
+                   "Effect": "Allow",
+                   "Action": "<Action>",
+                   "Resource": "*"
+                } ]
+             },
+             "Roles": [ {
+                "Ref": "Role"
+             } ]
+          }
+       },
+       "RootInstanceProfile": {
+          "Type": "AWS::IAM::InstanceProfile",
+          "Properties": {
+             "Path": "/",
+             "Roles": [ {
+                "Ref": "Role"
+             } ]
+          }
+       }
+    },
+    "Outputs":{
+      "Role": {
+         "Description": "Role-Name",
+         "Value": {"Ref": "Role"},
+         "Export":{
+            "Name": {"Fn::Sub": "${AWS::StackName}-Role"}
+         }
+      },
+      "Policy": {
+         "Description": "Policy-Name",
+         "Value": {"Ref": "RolePolicies"},
+         "Export":{
+            "Name": {"Fn::Sub": "${AWS::StackName}-Policy"}
+         }
+      }
+    }
+ }

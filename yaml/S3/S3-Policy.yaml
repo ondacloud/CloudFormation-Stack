@@ -1,0 +1,49 @@
+# S3 Policy ELB Accouunt ID - https://docs.aws.amazon.com/ko_kr/elasticloadbalancing/latest/classic/enable-access-logs.html
+
+Parameters:
+  EnvironmentName:
+    Description: An environment name that is prefixed to resource names 
+    Type: String
+    Default: "<env>"
+
+Resources:
+  S3Bucket:
+    # DeletionPolicy: Retain #CF Stack이 삭제되더라도 S3 Bucket 유지
+    Type: 'AWS::S3::Bucket'
+    Description: "S3 Bucket"
+    Properties:
+      BucketName: !Sub ${EnvironmentName}-buckets-2023
+      AccessControl: Private
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
+
+  S3BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref S3Bucket
+      PolicyDocument:
+        Fn::Sub: |
+          <Policy Json>
+Outputs:
+  S3Bucket:
+    Description: "S3 Bucket"
+    Value: !Ref S3Bucket
+    Export:
+      Name:
+        'Fn::Sub': '${AWS::StackName}-S3Bucket'
+
+  S3BucketPolicy:
+    Description: "S3 Bucket Policy"
+    Value: !Ref S3BucketPolicy
+    Export:
+      Name:
+        'Fn::Sub': '${AWS::StackName}-S3Bucket-Policy'

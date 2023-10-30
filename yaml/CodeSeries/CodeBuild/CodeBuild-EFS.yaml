@@ -1,0 +1,171 @@
+Parameters:
+  EnvironmentName:
+    Description: An environment name that is prefixed to resource names 
+    Type: String
+    Default: "<env>"
+
+  SecurityGroupDescription:
+    Description: Security Group Description
+    Type: String
+    Default: "CodeBuild-SG"
+
+Resources:
+#CodeBuild Security Group
+  CodeBuildSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Ref SecurityGroupDescription
+      VpcId: 
+        Fn::ImportValue: <env>-stack-VPC-VPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 2049
+        ToPort: 2049
+        SourceSecurityGroupId:
+          Fn::ImportValue: <env>-stack-efs-EFS-SG
+      Tags:
+      - Key: Name
+        Value: !Sub ${EnvironmentName}-CodeBuild-SG
+
+#EFS Security Group
+  EFSIngressFromEC2:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId:
+        Fn::ImportValue: <env>-stack-efs-EFS-SG
+      IpProtocol: tcp
+      FromPort: 2049
+      ToPort: 2049
+      SourceSecurityGroupId: !Ref CodeBuildSecurityGroup
+
+#CodeBuild Role
+  CodeBuildRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${EnvironmentName}-codebuild-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: 'sts:AssumeRole'
+      Policies:
+        - PolicyName: CodeBuildPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 's3:GetObject'
+                  - 's3:PutObject'
+                  - 's3:ListBucket'
+                Resource:
+                  - '*'
+              - Effect: Allow
+                Action:
+                  - 'codecommit:GitPull'
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource:
+                  - !Sub 'arn:aws:logs:ap-northeast-2:250328188836:log-group:${EnvironmentName}-build'
+                  - !Sub 'arn:aws:logs:ap-northeast-2:250328188836:log-group:${EnvironmentName}-build:*'
+              - Effect: Allow
+                Action:
+                  - 'codebuild:CreateReportGroup'
+                  - 'codebuild:CreateReport'
+                  - 'codebuild:UpdateReport'
+                  - 'codebuild:BatchPutTestCases'
+                  - 'codebuild:BatchPutCodeCoverages'
+                Resource:
+                  - !Sub 'arn:aws:codebuild:ap-northeast-2:250328188836:report-group/${EnvironmentName}-build-*'
+              - Effect: Allow
+                Action:
+                  - 'ec2:CreateNetworkInterface'
+                  - 'ec2:DescribeDhcpOptions'
+                  - 'ec2:DescribeNetworkInterfaces'
+                  - 'ec2:DeleteNetworkInterface'
+                  - 'ec2:DescribeSubnets'
+                  - 'ec2:DescribeSecurityGroups'
+                  - 'ec2:DescribeVpcs'
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - 'ec2:CreateNetworkInterfacePermission'
+                Resource: 'arn:aws:ec2:ap-northeast-2:250328188836:network-interface/*'
+                Condition:
+                  StringEquals:
+                    ec2:Subnet:
+                      - !Sub
+                        - 'arn:aws:ec2:ap-northeast-2:250328188836:subnet/${PrivateSubneta}'
+                        - PrivateSubneta:
+                            Fn::ImportValue: <env>-stack-VPC-private-a
+                      - !Sub
+                        - 'arn:aws:ec2:ap-northeast-2:250328188836:subnet/${PrivateSubnetb}'
+                        - PrivateSubnetb:
+                            Fn::ImportValue: <env>-stack-VPC-private-b
+                    ec2:AuthorizedService: 'codebuild.amazonaws.com'
+              - Effect: Allow
+                Action:
+                  - 'efs:DescribeFileSystems'
+                  - 'efs:DescribeMountTargets'
+                  - 'efs:DescribeMountTargetSecurityGroups'
+                  - 'efs:ModifyMountTargetSecurityGroups'
+                Resource: '*'
+
+#CodeBuild
+  CodeBuild:
+    Type: AWS::CodeBuild::Project
+    Properties: 
+      Name: !Sub ${EnvironmentName}-build
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:5.0
+        PrivilegedMode: true
+        ImagePullCredentialsType: CODEBUILD
+      ServiceRole: !GetAtt CodeBuildRole.Arn
+      Artifacts:
+        Type: NO_ARTIFACTS
+      FileSystemLocations: 
+        - Type: EFS
+          Identifier: EFS
+          Location: !Sub 
+            - "${ImportedEFSId}.efs.ap-northeast-2.amazonaws.com:/"
+            - ImportedEFSId:
+                Fn::ImportValue: <env>-stack-efs-EFS
+          MountPoint: ~/dist/
+          MountOptions: "nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2"
+      LogsConfig: 
+        CloudWatchLogs:
+          Status: ENABLED
+          GroupName: !Sub ${EnvironmentName}-build
+      Source: 
+        Type: CODECOMMIT
+        Location:
+          Fn::ImportValue: <env>-codecommit-stack-CodeCommit-URL-HTTP
+        BuildSpec: buildspec.yaml
+        SecurityGroupIds: 
+          - !Ref CodeBuildSecurityGroup
+      Tags: 
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-build
+
+Outputs:
+  CodeBuildSecurityGroup:
+    Description: "CodeBuild SecurityGroup"
+    Value: !Ref CodeBuildSecurityGroup
+    Export:
+      Name:
+        'Fn::Sub': '${AWS::StackName}-CodeBuild-SG-id'
+
+  CodeBuild:
+    Description: "CodeBuild"
+    Value: !Ref CodeBuild
+    Export:
+      Name:
+        'Fn::Sub': '${AWS::StackName}-CodeBuild'

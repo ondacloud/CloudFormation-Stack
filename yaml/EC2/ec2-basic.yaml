@@ -1,0 +1,93 @@
+Parameters:
+  EnvironmentName:
+    Description: prefixed to resource names
+    Type: String
+    Default: "<env>"
+    
+  LatestAmiId:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-amazon-linux-latest/al2023-ami-minimal-kernel-default-x86_64'
+
+#EC2
+Resources:
+  EC2Instance:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      ImageId: !Ref LatestAmiId
+      InstanceType: <Type>
+      SecurityGroupIds:
+        - !Ref EC2SecurityGroup
+      SubnetId:
+        Fn::ImportValue: <env>-stack-VPC-public-a
+      KeyName: <key name>
+      IamInstanceProfile: !Ref AdminInstanceProfile
+      UserData: 
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y
+          ...
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-bastion-ec2
+
+#Security Group
+  EC2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "bastion-SG"
+      VpcId:
+        Fn::ImportValue: <env>-stack-VPC-VPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: <Port>
+        ToPort: <Port>
+        CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+      - IpProtocol: tcp
+        FromPort: <port>
+        ToPort: <port>
+        CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-EC2-SG
+
+  #IAM
+  AdminIAMRole:
+    Type: AWS::IAM::Role
+    DeletionPolicy: Retain
+    Properties:
+      RoleName: !Sub ${EnvironmentName}-admin-role
+      AssumeRolePolicyDocument: 
+        Version: "2012-10-17"
+        Statement: 
+          - Effect: "Allow"
+            Principal: 
+              Service: 
+                - "ec2.amazonaws.com"
+            Action: 
+              - "sts:AssumeRole"
+      Path: "/"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/AdministratorAccess"
+
+  AdminInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+      - !Ref 'AdminIAMRole'
+
+Outputs:
+  EC2Instance:
+    Description: "EC2 Instance"
+    Value: !Ref EC2Instance
+    Export:
+      Name:
+          'Fn::Sub': '${AWS::StackName}-EC2-Instance'
+
+  EC2SecurityGroup:
+    Description: "EC2 Security Group"
+    Value: !Ref EC2SecurityGroup
+    Export:
+      Name:
+          'Fn::Sub': '${AWS::StackName}-EC2-SG'

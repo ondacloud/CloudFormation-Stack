@@ -1,0 +1,24 @@
+Parameters:
+  EnvironmentName:
+    Description: An environment name that is prefixed to resource names
+    Type: String
+    Default: "<env>"
+
+Resources:
+  KinesisDataStream:
+    Type: AWS::Kinesis::Stream
+    Properties: 
+      Name: !Sub ${EnvironmentName}-kinesis
+      StreamModeDetails: 
+        StreamMode: ON_DEMAND
+      Tags: 
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-kinesis
+
+Outputs:
+  KinesisDataStream:
+    Description: "Kinesis Data Stream"
+    Value: !Ref KinesisDataStream
+    Export:
+      Name:
+        'Fn::Sub': '${AWS::StackName}-KDS'

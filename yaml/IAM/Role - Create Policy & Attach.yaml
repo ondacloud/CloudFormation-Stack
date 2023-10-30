@@ -1,0 +1,35 @@
+Parameters:
+  EnvironmentName:
+    Description: An environment name that is prefixed to resource names
+    Type: String
+    Default: "<env>"
+
+Resources:
+  IAMRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${EnvironmentName}-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: <Service Name>.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: <Policy Name>
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - <Action>
+                Resource: '*' 
+
+Outputs:
+  Role:
+    Description: "Role"
+    Value: !GetAtt IAMRole.Arn
+    Export:
+      Name:
+          'Fn::Sub': '${AWS::StackName}-role'

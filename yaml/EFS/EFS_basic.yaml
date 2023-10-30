@@ -1,0 +1,91 @@
+Parameters:
+  EnvironmentName:
+    Description: An environment name that is prefixed to resource names 
+    Type: String
+    Default: "<env>"
+
+  SecurityGroupDescription:
+    Description: Security Group Description
+    Type: String
+    Default: "EFS-SG"
+
+Resources:
+#EFS Security Group
+  EFSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Ref SecurityGroupDescription
+      VpcId: 
+        Fn::ImportValue: <env>-stack-VPC-VPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 2049
+        ToPort: 2049
+        SourceSecurityGroupId: 
+          Fn::ImportValue: <env>-stack-EC2-EC2-SG
+      Tags:
+      - Key: Name
+        Value: !Sub ${EnvironmentName}-EFS-SG
+ 
+#EC2 Private Security Group
+  EC2IngressFromEFS:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId:
+        Fn::ImportValue: <env>-stack-EC2-EC2-SG
+      IpProtocol: tcp
+      FromPort: 2049
+      ToPort: 2049
+      SourceSecurityGroupId: !Ref EFSSecurityGroup
+
+  EC2EngressFromEFS:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId:
+        Fn::ImportValue: <env>-stack-EC2-EC2-SG
+      IpProtocol: tcp
+      FromPort: 2049
+      ToPort: 2049
+      DestinationSecurityGroupId: !Ref EFSSecurityGroup
+
+#EFS
+  ElasticFileSystem:   
+    Type: AWS::EFS::FileSystem
+    Properties: 
+      FileSystemTags: 
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-EFS
+    
+  MountTargetResource1:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref ElasticFileSystem
+      SubnetId:
+        Fn::ImportValue: <env>-stack-VPC-private-a
+      SecurityGroups: 
+        - !Ref EFSSecurityGroup
+
+  MountTargetResource2:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref ElasticFileSystem
+      SubnetId:
+        Fn::ImportValue: <env>-stack-VPC-private-b
+      SecurityGroups: 
+        - !Ref EFSSecurityGroup
+
+
+Outputs:
+  EFSSecurityGroup:
+    Description: "EFS SecurityGroup"
+    Value: !Ref EFSSecurityGroup
+    Export:
+      Name:
+        'Fn::Sub': '${AWS::StackName}-EFS-SG'
+
+  ElasticFileSystem:
+    Description: "Elastic File System"
+    Value: !Ref ElasticFileSystem
+    Export:
+      Name:
+        'Fn::Sub': '${AWS::StackName}-EFS'

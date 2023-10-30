@@ -1,0 +1,121 @@
+Parameters:
+  EnvironmentName:
+    Description: An environment name that is prefixed to resource names
+    Type: String
+    Default: "<env>"
+
+  SecurityGroupDescription:
+    Description: "redis-SG"
+    Type: String
+    Default: "Redis-SG"
+
+
+Resources:
+#ElastiCache Subnet Group
+  ElastiCacheSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Ref SecurityGroupDescription
+      VpcId:
+        Fn::ImportValue: <env>-stack-VPC-VPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 6379
+        ToPort: 6379
+        CidrIp: 0.0.0.0/0
+      Tags:
+      - Key: Name
+        Value: !Sub ${EnvironmentName}-ElastiCache-SG
+
+#ElastiCache Subnet Group
+  ElastiCacheSubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Properties:
+      Description: !Sub ${EnvironmentName}-subnetgroup
+      CacheSubnetGroupName: !Sub ${EnvironmentName}-subnetgroup
+      SubnetIds: 
+        - Fn::ImportValue: <env>-stack-VPC-protected-a
+        - Fn::ImportValue: <env>-stack-VPC-protected-b
+        - Fn::ImportValue: <env>-stack-VPC-protected-c
+      Tags: 
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-subnetgroup
+
+#ElastiCache Parameter Group
+  ElastiCacheParameterGroup:
+    Type: AWS::ElastiCache::ParameterGroup
+    Properties: 
+      CacheParameterGroupFamily: redis7
+      Description: !Sub ${EnvironmentName}-pg
+      Properties: 
+        cluster-enabled: 'yes'
+      Tags: 
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-pg
+
+#ElastiCache Cluster
+  ElastiCacheCluster:
+    Type: AWS::ElastiCache::ReplicationGroup
+    DeletionPolicy: Delete
+    Properties: 
+      ReplicationGroupId: !Sub '${EnvironmentName}-redis-cluster'
+      ReplicationGroupDescription: "This is Elasticache Redis (cluster mode enabled)"
+      Engine: redis # memcached | redis
+      EngineVersion: '7.0'  # aws elasticache describe-cache-engine-versions
+      CacheNodeType: cache.t3.micro
+      NumNodeGroups: 3 # shard number
+      ReplicasPerNodeGroup: 2
+      Port: 6379
+      CacheParameterGroupName: !Ref ElastiCacheParameterGroup
+      CacheSubnetGroupName: !Ref ElastiCacheSubnetGroup
+      SecurityGroupIds: 
+        - !Ref ElastiCacheSecurityGroup
+      MultiAZEnabled: true
+      AutomaticFailoverEnabled: true
+      AtRestEncryptionEnabled: true
+      TransitEncryptionEnabled: true
+      AutoMinorVersionUpgrade: true
+      SnapshotRetentionLimit: 1
+
+  # ElastiCacheCluster:
+  #   Type: AWS::ElastiCache::CacheCluster
+  #   Properties: 
+  #     AZMode: corss-az
+  #     CacheNodeType:  cache.t3.micro
+  #     CacheParameterGroupName: !Ref ElastiCacheParameterGroup
+  #     CacheSubnetGroupName: !Ref ElastiCacheSubnetGroup
+  #     ClusterName: !Sub ${EnvironmentName}-redis-cluster
+  #     Engine: redis
+  #     EngineVersion: 7.0
+  #     NumCacheNodes: 1
+  #     Port: 6379
+  #     ReplicasPerNodeGroup: 1
+  #     ReplicationGroupDescription: Sample Redis group for scaling
+  #     VpcSecurityGroupIds: 
+  #       - !Ref ElastiCacheSecurityGroup
+  #     Tags: 
+  #       - Key: Name
+  #         Value: !Sub ${EnvironmentName}-redis-cluster
+
+
+Outputs:
+  ElastiCacheSubnetGroup:
+    Description: "ElastiCache Subnet Group"
+    Value: !Ref ElastiCacheSubnetGroup
+    Export:
+      Name:
+        'Fn::Sub': '${AWS::StackName}-ElastiCache-SubnetGroup'
+
+  ElastiCacheParameterGroup:
+    Description: "ElastiCache Subnet Group"
+    Value: !Ref ElastiCacheParameterGroup
+    Export:
+      Name:
+        'Fn::Sub': '${AWS::StackName}-ElastiCache-ParamterGroup'
+  
+  ElastiCacheCluster:
+    Description: "ElastiCache Cluster"
+    Value: !Ref ElastiCacheCluster
+    Export:
+      Name:
+        'Fn::Sub': '${AWS::StackName}-ElastiCache-Cluster'

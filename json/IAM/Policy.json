@@ -1,0 +1,22 @@
+{
+    "AWSTemplateFormatVersion" : "2010-09-09",
+    "Description" : "Policy.",
+"Resources": {
+    "myPolicy": {
+        "Type": "AWS::IAM::Policy",
+        "Properties": {
+            "PolicyName": "<Policy Name>",
+            "PolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Action": "<Action>",
+                        "Resource": "*"
+                    }
+                ]
+            }
+        }
+    }
+}
+}

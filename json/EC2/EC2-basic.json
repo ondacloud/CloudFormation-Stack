@@ -1,0 +1,98 @@
+{
+    "AWSTemplateFormatVersion" : "2010-09-09",
+    "Description" : "AWS CloudFormation sample template LAMP_Single_Instance: Create a LAMP stack using a single EC2 instance and a local MySQL database for storage. This template demonstrates using the AWS CloudFormation bootstrap scripts to install the packages and files necessary to deploy the Apache web server, PHP, and MySQL at instance launch time. **WARNING** This template creates an Amazon EC2 instance. You will be billed for the AWS resources used if you create a stack from this template.",
+    "Parameters" : {
+        "EnvironmentName": {
+            "Description" : "Naprefixed to resource names",
+            "Type": "String",
+            "Default" : "<env>"
+        },
+        "LatestAmiId": {
+            "Type": "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>",
+            "Default": "/aws/service/ami-amazon-linux-latest/al2023-ami-minimal-kernel-default-x86_64"
+        }
+    },
+    "Resources": {
+        "EC2SecurityGroup" : {
+            "Type" : "AWS::EC2::SecurityGroup",
+            "Properties" : {
+                "GroupDescription" : "EC2-SG",
+                "VpcId" : {"Fn::ImportValue" : "<env>-stack-VPC-VPC"},
+                "SecurityGroupIngress" : [{
+                    "IpProtocol" : "tcp",
+                    "FromPort" : "<Port>",
+                    "ToPort" : "<Port>",
+                    "CidrIp" : "0.0.0.0/0"
+                },
+                {
+                    "IpProtocol" : "tcp",
+                    "FromPort" : "<Port>",
+                    "ToPort" : "<Port>",
+                    "CidrIp" : "0.0.0.0/0"
+                }
+            ],
+                "SecurityGroupEgress" : [{
+                    "IpProtocol" : "tcp",
+                    "FromPort" : "<Port>",
+                    "ToPort" : "<Port>",
+                    "CidrIp" : "0.0.0.0/0"
+                },
+                {
+                    "IpProtocol" : "tcp",
+                    "FromPort" : "<Port>",
+                    "ToPort" : "<Port>",
+                    "CidrIp" : "0.0.0.0/0"
+                }]
+            }
+        },
+        "EC2Instance" : {
+            "Type" : "AWS::EC2::Instance",
+            "Properties" : {
+                "ImageId" : { "Ref" : "LatestAmiId"},
+                "InstanceType": "<type>",
+                "KeyName" : "<String>",
+                "NetworkInterfaces": [ {
+                    "AssociatePublicIpAddress": "true",
+                    "DeviceIndex": "0",
+                    "GroupSet": [{ "Ref" : "EC2SecurityGroup" }],
+                    "SubnetId": { "Fn::ImportValue" : "<env>-stack-VPC-public-a" }
+                    }],
+                    "UserData": {
+                        "Fn::Base64": {
+                            "Fn::Join": ["", [
+                                "#!/bin/bash -ex\n",
+                                "yum update -y\n",
+                                "yum install -y jq curl\n",
+                                "curl 'https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip' -o 'awscliv2.zip'\n",
+                                "unzip awscliv2.zip\n",
+                                "sudo ./aws/install\n",
+                                "ln -s /usr/local/bin/aws /usr/bin/\n",
+                                "ln -s /usr/local/bin/aws_completer /usr/bin/\n"
+                                ]]
+                            }
+                        },
+                    "Tags": [{
+                        "Key": "Name",
+                        "Value": {
+                            "Fn::Sub": [ "${EnvironmentName}-ec2", { "EnvironmentName": {"Ref" : "EnvironmentName" }} ]
+                } }]
+            }
+        }
+    },
+    "Outputs" : {
+        "EC2Instance" : {
+            "Description" : "EC2",
+            "Value" : { "Ref" : "EC2Instance" },
+            "Export": {
+                "Name": {"Fn::Sub": "${AWS::StackName}-EC2"}
+            }
+        },
+        "EC2SecurityGroup":{
+            "Description": "security gorup",
+            "Value": { "Ref": "EC2SecurityGroup"},
+            "Export": {
+                "Name": {"Fn::Sub": "${AWS::StackName}-SG"}
+        }
+    }
+}
+}

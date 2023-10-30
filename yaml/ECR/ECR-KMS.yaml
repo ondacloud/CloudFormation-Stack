@@ -1,0 +1,63 @@
+Parameters:
+  EnvironmentName:
+    Description: An environment name that is prefixed to resource names
+    Type: String
+    Default: "<env>"
+
+  RepositoryName:
+    Type: String
+    Description: "The Repository name that will be created at this stack."
+    Default: "<env>-ecr"
+
+Resources:
+  Key:
+    Type: AWS::KMS::Key
+    Properties: 
+      Description: !Sub "ECR"
+      Enabled: true
+      EnableKeyRotation: true
+      KeyPolicy: 
+        Version: 2012-10-17
+        Id: key-default-1
+        Statement:
+          - Sid: Enable Root User Permissions
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action: 'kms:*'
+            Resource: '*'
+      # KeySpec: String
+      KeyUsage: ENCRYPT_DECRYPT
+      MultiRegion: false
+      PendingWindowInDays: 7
+      Tags: 
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-kms
+
+  KeyAlias:
+    Type: 'AWS::KMS::Alias'
+    Properties:
+      AliasName: !Sub 'alias/ecr/${RepositoryName}'
+      TargetKeyId: !Ref Key
+
+  ECRRepository:
+    Type: AWS::ECR::Repository
+    Properties: 
+      RepositoryName: !Ref RepositoryName
+      EncryptionConfiguration: 
+        EncryptionType: KMS # AES256 , KMS
+        KmsKey: !GetAtt Key.Arn
+      ImageScanningConfiguration: 
+        ScanOnPush: true
+      ImageTagMutability: IMMUTABLE # IMMUTABLE , MUTABLE
+      Tags: 
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-ecr
+
+Outputs:
+  ECRRepository:
+    Description: "ECR Repository"
+    Value: !Ref ECRRepository
+    Export:
+      Name:
+        'Fn::Sub': '${AWS::StackName}-ecr'

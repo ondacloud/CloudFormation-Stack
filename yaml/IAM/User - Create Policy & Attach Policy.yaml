@@ -1,0 +1,30 @@
+Parameters:
+  EnvironmentName:
+    Description: An environment name that is prefixed to resource names
+    Type: String
+    Default: "<env>"
+
+Resources:
+  IAMUser:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: <User Name>
+      LoginProfile: 
+        Password: <password>
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-user
+
+
+  AdminPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action: '*'
+            Resource: '*'
+      PolicyName: <Policy Name>
+      Users:
+        - !Ref IAMUser

@@ -1,0 +1,41 @@
+Parameters:
+  EnvironmentName:
+    Description: An environment name that is prefixed to resource names
+    Type: String
+    Default: "<env>"  
+
+  SecurityGroupDescription:
+    Description: Security Group Description
+    Type: String
+    Default: "SG"
+
+Resources:
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Ref SecurityGroupDescription
+      VpcId: 
+        Fn::ImportValue: <env>-stack-VPC-VPC
+      #inbound
+      SecurityGroupIngress:
+      - IpProtocol: tcp #udp
+        FromPort: <port>
+        ToPort: <port>
+        CidrIp: 0.0.0.0/0
+      #outbound
+      SecurityGroupEgress:
+      - IpProtocol: tcp
+        FromPort: <port>
+        ToPort: <port>
+        CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-SG
+
+Outputs:
+  SecurityGroup:
+    Description: "Security Group"
+    Value: !Ref SecurityGroup
+    Export:
+      Name:
+        'Fn::Sub': '${AWS::StackName}-SG'

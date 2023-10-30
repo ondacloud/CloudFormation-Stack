@@ -1,0 +1,12 @@
+IAMUser:
+  Type: AWS::IAM::User
+  Properties: 
+    UserName: String
+    LoginProfile: 
+      Password: <password>
+    ManagedPolicyArns: 
+      - <iam policy arn>
+    Path: /
+    Tags:
+      - Key: Name
+        Value: !Ref UserName

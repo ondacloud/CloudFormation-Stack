@@ -1,0 +1,32 @@
+Parameters:
+  EnvironmentName:
+    Description: An environment name that is prefixed to resource names 
+    Type: String
+    Default: "<env>"
+
+Resources:
+  S3Bucket:
+    Type: 'AWS::S3::Bucket'
+    Description: Creating Amazon S3 bucket from CloudFormation
+    Properties:
+      BucketName: !Sub ${EnvironmentName}-bucket
+      AccessControl: Private
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
+
+Outputs:
+  S3Bucket:
+    Description: "S3 Bucket"
+    Value: !Ref S3Bucket
+    Export:
+      Name:
+        'Fn::Sub': '${AWS::StackName}-S3Bucket'

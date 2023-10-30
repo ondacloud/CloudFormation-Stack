@@ -1,0 +1,30 @@
+Parameters:
+  EnvironmentName:
+    Description: An environment name that is prefixed to resource names 
+    Type: String
+    Default: "<env>"
+
+Resources:
+  CodeCommit:
+    Type: AWS::CodeCommit::Repository
+    Properties: 
+      RepositoryName: !Sub ${EnvironmentName}-repo
+      Tags:
+      - Key: Name
+        Value: !Sub ${EnvironmentName}-repo
+
+Outputs:
+  CodeCommit:
+    Description: "CodeCommit Repository"
+    Value: !Ref CodeCommit
+    Export:
+      Name:
+        'Fn::Sub': '${AWS::StackName}-CodeCommit'
+
+  CodeCommitURLHTTP:
+    Description: "CodeCommit Repository"
+    Value:
+      Fn::GetAtt: CodeCommit.CloneUrlHttp
+    Export:
+      Name:
+        'Fn::Sub': '${AWS::StackName}-CodeCommit-URL-HTTP'

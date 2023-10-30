@@ -1,0 +1,183 @@
+Parameters:
+  EnvironmentName:
+    Description: An environment name that is prefixed to resource names 
+    Type: String
+    Default: "<env>"
+
+  SecurityGroupDescription:
+    Description: Security Group Description
+    Type: String
+    Default: "RDS-SG"
+
+
+Resources:
+#EC2 Security Group
+  RDSEgressFromEC2:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId:
+        Fn::ImportValue: <env>-stack-EC2-EC2-SG
+      IpProtocol: tcp
+      FromPort: 5432
+      ToPort: 5432
+      DestinationSecurityGroupId: !Ref RDSSecurityGroup
+
+#RDS Security Group
+  RDSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Ref SecurityGroupDescription
+      VpcId: 
+        Fn::ImportValue: <env>-stack-VPC-VPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 5432
+        ToPort: 5432
+        CidrIp: 0.0.0.0/0
+      Tags:
+      - Key: Name
+        Value: !Sub ${EnvironmentName}-RDS-SG
+
+#RDS Security Group
+  EC2IngressFromRDS:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref RDSSecurityGroup
+      IpProtocol: tcp
+      FromPort: 5432
+      ToPort: 5432
+      SourceSecurityGroupId:
+        Fn::ImportValue: <env>-stack-EC2-EC2-SG
+
+
+#RDS Subnet Group
+  RDSSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties: 
+      DBSubnetGroupDescription: !Sub ${EnvironmentName}-sg
+      DBSubnetGroupName: !Sub ${EnvironmentName}-subnetgroup
+      SubnetIds: 
+        - Fn::ImportValue: <env>-stack-VPC-protected-a
+        - Fn::ImportValue: <env>-stack-VPC-protected-b
+        - Fn::ImportValue: <env>-stack-VPC-protected-c
+      Tags: 
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-subnetgroup
+
+#RDS Cluster Parameter Group
+  RDSClusterParameterGroup:
+    Type: AWS::RDS::DBClusterParameterGroup
+    Properties: 
+      DBClusterParameterGroupName: !Sub ${EnvironmentName}-cpg
+      Description: !Sub ${EnvironmentName}-cpg
+      Family: aurora-postgresql14
+      Parameters:
+        timezone: "Asia/Seoul"
+      Tags: 
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-cpg
+
+#RDS Parameter Group
+  RDSParameterGroup:
+    Type: AWS::RDS::DBParameterGroup
+    Properties: 
+      DBParameterGroupName: !Sub ${EnvironmentName}-pg
+      Description: !Sub ${EnvironmentName}-pg
+      Family: aurora-postgresql14
+      Parameters: {}
+      Tags: 
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-pg
+
+#RDS DataBase
+  RDSCluster:
+    Type: 'AWS::RDS::DBCluster'
+    Properties:
+      DBClusterIdentifier: !Sub ${EnvironmentName}-db
+      DatabaseName: <DB Name>
+      Engine: aurora-postgresql
+      EngineMode: provisioned
+      MasterUsername: <User Name> #예약어 admin 사용 불가
+      MasterUserPassword: <Password>
+      DBSubnetGroupName: !Ref RDSSubnetGroup
+      VpcSecurityGroupIds:
+        - !Ref RDSSecurityGroup
+      AvailabilityZones:
+        - ap-northeast-2a
+        - ap-northeast-2b
+        - ap-northeast-2c
+      Port: 5432
+      DBClusterParameterGroupName: !Ref RDSClusterParameterGroup
+      StorageEncrypted: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-db
+
+  RDSInstance1:
+    Type: 'AWS::RDS::DBInstance'
+    Properties:
+      DBInstanceClass: db.r6g.2xlarge
+      DBSubnetGroupName: !Ref RDSSubnetGroup
+      Engine: aurora-postgresql
+      DBClusterIdentifier: !Ref RDSCluster
+      PubliclyAccessible: false
+      DBParameterGroupName: !Ref RDSParameterGroup
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-aurora-instance1
+
+  RDSInstance2:
+    Type: 'AWS::RDS::DBInstance'
+    Properties:
+      DBInstanceClass: db.r6g.2xlarge
+      DBSubnetGroupName: !Ref RDSSubnetGroup
+      Engine: aurora-postgresql
+      DBClusterIdentifier: !Ref RDSCluster
+      PubliclyAccessible: false
+      DBParameterGroupName: !Ref RDSParameterGroup
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-aurora-instance2
+
+Outputs:
+  RDSSubnetGroup:
+    Description: "RDS Subnet Group"
+    Value: !Ref RDSSubnetGroup
+    Export:
+      Name:
+        'Fn::Sub': '${AWS::StackName}-RDS-SubnetGroup'
+
+  RDSParameterGroup:
+    Description: "RDS Subnet Group"
+    Value: !Ref RDSParameterGroup
+    Export:
+      Name:
+        'Fn::Sub': '${AWS::StackName}-RDS-ParamterGroup'
+
+  RDSClusterParameterGroup:
+    Description: "RDS Subnet Group"
+    Value: !Ref RDSClusterParameterGroup
+    Export:
+      Name:
+        'Fn::Sub': '${AWS::StackName}-RDS-ClusterParamterGroup'
+
+  RDSCluster:
+    Description: "RDS cluster"
+    Value: !Ref RDSCluster
+    Export:
+      Name:
+        'Fn::Sub': '${AWS::StackName}-RDS-Cluster'
+
+  RDSInstance1:
+    Description: "RDS Instance 1"
+    Value: !Ref RDSInstance1
+    Export:
+      Name:
+        'Fn::Sub': '${AWS::StackName}-RDS-Instance-1'
+
+  RDSInstance2:
+    Description: "RDS Instance 2"
+    Value: !Ref RDSInstance2
+    Export:
+      Name:
+        'Fn::Sub': '${AWS::StackName}-RDS-Instance-2'

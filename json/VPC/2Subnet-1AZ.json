@@ -1,0 +1,249 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+  
+    "Description": "CloudFormation template for a generic VPC with public and private subnets (with private network Internet access via NAT)",
+  
+    "Parameters": {
+      "Environment":{
+        "Description": "Type Your Environment",
+        "Type": "String",
+        "Default": "<env>"
+      }
+    },
+  
+    "Mappings": {
+      "SubnetConfig": {
+        "VPC": {
+          "CIDR": "10.0.0.0/16"
+        },
+        "Public1": {
+          "CIDR": "10.0.0.0/24"
+        },
+        "Private1": {
+          "CIDR": "10.0.1.0/24"
+        }
+      }
+    },
+  
+    "Resources": {
+      "VPC": {
+        "Type": "AWS::EC2::VPC",
+        "Properties": {
+          "CidrBlock": {
+            "Fn::FindInMap": ["SubnetConfig", "VPC", "CIDR"]
+          },
+          "Tags": [{
+              "Key": "Name",
+              "Value": {
+                  "Fn::Sub": [ "${Environment}-vpc", { "Environment": {"Ref" : "Environment" }} ]
+              }
+            }
+          ]
+        }
+      },
+   
+      "PublicSubnet1": {
+        "DependsOn": ["VPC"],
+        "Type": "AWS::EC2::Subnet",
+        "Properties": {
+          "VpcId": {
+            "Ref": "VPC"
+          },
+          "CidrBlock": {
+            "Fn::FindInMap": ["SubnetConfig", "Public1", "CIDR"]
+          },
+          "AvailabilityZone": {
+            "Fn::Select": ["0", {
+              "Fn::GetAZs": ""
+            }]
+          },
+          "Tags": [{
+              "Key": "Name",
+              "Value": {
+                  "Fn::Sub": [ "${Environment}-public-a", { "Environment": {"Ref" : "Environment" }} ]
+              }
+            }
+          ]
+        }
+      },
+  
+      "InternetGateway": {
+        "Type": "AWS::EC2::InternetGateway",
+        "Properties": {
+          "Tags": [{
+              "Key": "Name",
+              "Value": {
+                  "Fn::Sub": [ "${Environment}-IGW", { "Environment": {"Ref" : "Environment" }} ]
+              }
+            }
+          ]
+        }
+      },
+  
+      
+      "GatewayToInternet": {
+        "DependsOn": ["VPC", "InternetGateway"],
+        "Type": "AWS::EC2::VPCGatewayAttachment",
+        "Properties": {
+          "VpcId": {
+            "Ref": "VPC"
+          },
+          "InternetGatewayId": {
+            "Ref": "InternetGateway"
+          }
+        }
+      },
+  
+      "PublicRouteTable": {
+        "DependsOn": ["VPC"],
+        "Type": "AWS::EC2::RouteTable",
+        "Properties": {
+          "VpcId": {
+            "Ref": "VPC"
+          },
+          "Tags": [{
+              "Key": "Name",
+              "Value": {
+                  "Fn::Sub": [ "${Environment}-public-rt", { "Environment": {"Ref" : "Environment" }} ]
+              }
+            }
+          ]
+        }
+      },
+  
+      "PublicRoute": {
+        "DependsOn": ["PublicRouteTable", "InternetGateway"],
+        "Type": "AWS::EC2::Route",
+        "Properties": {
+          "RouteTableId": {
+            "Ref": "PublicRouteTable"
+          },
+          "DestinationCidrBlock": "0.0.0.0/0",
+          "GatewayId": {
+            "Ref": "InternetGateway"
+          }
+        }
+      },
+  
+      "PublicSubnetRouteTableAssociation1": {
+        "DependsOn": ["PublicSubnet1", "PublicRouteTable"],
+        "Type": "AWS::EC2::SubnetRouteTableAssociation",
+        "Properties": {
+          "SubnetId": {
+            "Ref": "PublicSubnet1"
+          },
+          "RouteTableId": {
+            "Ref": "PublicRouteTable"
+          }
+        }
+      },
+  
+      "PrivateSubnet1": {
+        "DependsOn": ["VPC"],
+        "Type": "AWS::EC2::Subnet",
+        "Properties": {
+          "VpcId": {
+            "Ref": "VPC"
+          },
+          "CidrBlock": {
+            "Fn::FindInMap": ["SubnetConfig", "Private1", "CIDR"]
+          },
+          "AvailabilityZone": {
+            "Fn::Select": ["0", {
+              "Fn::GetAZs": ""
+            }]
+          },
+          "Tags": [{
+              "Key": "Name",
+              "Value": {
+                  "Fn::Sub": [ "${Environment}-private-a", { "Environment": {"Ref" : "Environment" }} ]
+              }
+            }
+          ]
+        }
+      },
+    
+      "NatGateway1" : {
+        "DependsOn" : "VPC",
+        "Type" : "AWS::EC2::NatGateway",
+        "Properties" : {
+          "AllocationId" : { "Fn::GetAtt" : ["EIP1", "AllocationId"]},
+          "SubnetId" : { "Ref" : "PublicSubnet1"},
+          "Tags": [{
+              "Key": "Name",
+              "Value": {
+                  "Fn::Sub": [ "${Environment}-NGW-a", { "Environment": {"Ref" : "Environment" }} ]
+              }
+            }
+          ]
+        }
+      },
+  
+      "EIP1" : {
+        "Type" : "AWS::EC2::EIP",
+        "Properties" : {
+          "Domain" : "VPC"
+        }
+      },
+  
+      "PrivateRouteTable1": {
+        "DependsOn": ["VPC"],
+        "Type": "AWS::EC2::RouteTable",
+        "Properties": {
+          "VpcId": { "Ref": "VPC" },
+          "Tags": [{
+              "Key": "Name",
+              "Value": {
+                  "Fn::Sub": [ "${Environment}-private-a-rt", { "Environment": {"Ref" : "Environment" }} ]
+              }
+            }
+          ]
+        }
+      },
+  
+      "PrivateRoute1" : {
+        "Type" : "AWS::EC2::Route",
+        "Properties" : {
+          "RouteTableId" : { "Ref" : "PrivateRouteTable1" },
+          "DestinationCidrBlock" : "0.0.0.0/0",
+          "NatGatewayId" : { "Ref" : "NatGateway1" }
+        }
+      },
+  
+      "PrivateSubnetRouteTableAssociation1": {
+        "DependsOn": ["PrivateSubnet1", "PrivateRouteTable1"],
+        "Type": "AWS::EC2::SubnetRouteTableAssociation",
+        "Properties": {
+          "SubnetId": {
+            "Ref": "PrivateSubnet1"
+          },
+          "RouteTableId": {
+            "Ref": "PrivateRouteTable1"
+          }
+        }
+      }
+    },
+  "Outputs" : {
+    "VPC" : {
+      "Description" : "VPC",
+      "Value" : { "Ref" : "VPC" },
+      "Export" : {
+        "Name" : {"Fn::Sub": "${AWS::StackName}-VPC" }
+      }
+    },
+    "publicSubnet1" : {
+      "Description" : "public-1",
+      "Value" : { "Ref" : "PublicSubnet1" },
+      "Export" : {
+        "Name" : {"Fn::Sub": "${AWS::StackName}-public-a" }
+      }
+    },
+    "pirvateSubnet1" : {
+      "Description" : "private-subnet-1",
+      "Value" : { "Ref" : "PrivateSubnet1" },
+      "Export" : {
+        "Name" : {"Fn::Sub": "${AWS::StackName}-private-a" }
+      }
+    }
+  }
+  }

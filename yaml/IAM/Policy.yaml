@@ -1,0 +1,11 @@
+mypolicy:
+  Type: AWS::IAM::Policy
+  Properties:
+    PolicyName: <Policy Name>
+    PolicyDocument:
+      Version: '2012-10-17'
+      Statement:
+      - Effect: Allow
+        Action:
+          - <Action>
+        Resource: '*' 

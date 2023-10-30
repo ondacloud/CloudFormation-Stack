@@ -1,0 +1,36 @@
+Parameters:
+  EnvironmentName:
+    Description: prefixed to resource names
+    Type: String
+    Default: "<env>"
+
+Resources:
+  DhcpOptions: 
+    Type: AWS::EC2::DHCPOptions
+    Properties:
+        DomainNameServers: 
+          - <Domain Server IP>
+        NtpServers: 
+          - 169.254.169.123
+        Tags: 
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-dhcp
+  
+  DHCPOptionsAssociation:
+    Type: AWS::EC2::VPCDHCPOptionsAssociation
+    Properties:
+      DhcpOptionsId: !Ref DhcpOptions
+      VpcId: 
+        Fn::ImportValue: <env>-stack-VPC-VPC
+Outputs:
+  DHCP:
+    Description: "VPC Flow Log"
+    Value: !Ref DhcpOptions
+    Export:
+      Name:
+          'Fn::Sub': '${AWS::StackName}-DHCP'
+      
+---
+#Domain Server IP는 VPC Network 범위에 2를 더한 값입니다. 
+#Domain Server IP - https://repost.aws/ko/knowledge-center/route-53-fix-dns-resolution-issues
+#Amazon Time Sync Service - https://aws.amazon.com/ko/blogs/korea/keeping-time-with-amazon-time-sync-service/

@@ -1,0 +1,28 @@
+Parameters:
+  EnvironmentName:
+    Description: An environment name that is prefixed to resource names
+    Type: String
+    Default: "<env>"  
+
+  SecurityGroupDescription:
+    Description: Security Group Description
+    Type: String
+    Default: "SG"
+
+Resources:
+  EgressSecurityGroup:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId:
+        Fn::ImportValue: <stackname>-stack-EC2-SG
+      IpProtocol: tcp #udp
+      FromPort: <Port>
+      ToPort: <Port>
+      DestinationSecurityGroupId: !Ref <Security Group Name> #Security Group으로 Description을 지정할 때 사용합니다.
+
+Outputs:
+  Description:
+  Values: !Ref EgressSecurityGroup
+  Export:
+    Name:
+        'Fn::Sub': '${AWS::StackName}-SG-Egress'

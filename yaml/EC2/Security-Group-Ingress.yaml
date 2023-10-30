@@ -1,0 +1,29 @@
+Parameters:
+  EnvironmentName:
+    Description: An environment name that is prefixed to resource names
+    Type: String
+    Default: "<env>"  
+
+  SecurityGroupDescription:
+    Description: Security Group Description
+    Type: String
+    Default: "SG"
+
+Resources:
+  IngressSecurityGroup:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId:
+        Fn::ImportValue: <env>-stack-EC2-SG
+      IpProtocol: tcp #udp
+      FromPort: <Port>
+      ToPort: <Port>
+      SourceSecurityGroupId:
+        Fn::ImportValue: <env>-stack-EC2-SG
+
+Outputs:
+  Description:
+  Values: !Ref IngressSecurityGroup
+  Export:
+    Name:
+        'Fn::Sub': '${AWS::StackName}-SG-Ingress'

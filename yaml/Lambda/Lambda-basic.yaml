@@ -1,0 +1,23 @@
+Parameters:
+  EnvironmentName:
+    Description: An environment name that is prefixed to resource names
+    Type: String
+    Default: "<env>"
+
+Resources:
+  LambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties: 
+      FunctionName: !Sub ${EnvironmentName}-function
+      Runtime: <Value> #nodejs18.x, python3.11
+      Architectures: 
+        - arm64 #arm64 or x86_64
+      Code: 
+        ZipFile: !Sub |
+          <script>
+      MemorySize: 3008
+      Handler: index.handler
+      Role: <String>
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-lambda

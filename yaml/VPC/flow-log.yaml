@@ -1,0 +1,63 @@
+Parameters:
+  EnvironmentName:
+    Description: prefixed to resource names
+    Type: String
+    Default: "<env>"
+
+Resources:
+#Flow-log-Role 
+  VPCFlowLogRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: 'Allow'
+            Principal:
+              Service: 'vpc-flow-logs.amazonaws.com'
+            Action: 'sts:AssumeRole'
+      Policies:
+        - PolicyName: 'vpc-flow-log-policy'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: 'Allow'
+                Action:
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                  - "logs:DescribeLogGroups"
+                  - "logs:DescribeLogStreams"
+                Resource: '*'
+
+  VPCFlowLogGroup:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      LogGroupName: !Sub ${EnvironmentName}-vpc-log-group 
+      Tags: 
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-log-group
+
+#VPC-flow-log
+  VPCFlowLog:
+    Type: 'AWS::EC2::FlowLog'
+    Properties:
+      LogGroupName: !Ref VPCFlowLogGroup
+      LogDestinationType: cloud-watch-logs
+      DeliverLogsPermissionArn: !GetAtt 'VPCFlowLogRole.Arn'
+      ResourceId: 
+        Fn::ImportValue: <env>-stack-VPC-VPC
+      MaxAggregationInterval: 60
+      ResourceType: 'VPC'
+      TrafficType: 'ALL'
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-vpc-flow-log
+
+Outputs:
+  VPCflow:
+    Description: "VPC Flow Log"
+    Value: !Ref VPCFlowLog
+    Export:
+      Name:
+          'Fn::Sub': '${AWS::StackName}-VPC-Flow-Log'
